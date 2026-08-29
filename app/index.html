@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shotpine — Beautiful screenshots in seconds</title>
+<style>
+  :root{--bg:#0f1115;--panel:#171a21;--line:#262b36;--txt:#e6e9ef;--mut:#9aa4b2;--acc:#3fae6b;}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);height:100vh;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line)}
+  header b{font-size:16px}.tag{color:var(--mut);font-size:12px}
+  .wrap{flex:1;display:flex;min-height:0}
+  aside{width:300px;padding:14px;border-right:1px solid var(--line);overflow:auto;background:var(--panel)}
+  main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto}
+  #stageWrap{max-width:100%;max-height:100%}
+  canvas{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.5);cursor:grab}
+  canvas.drag{cursor:grabbing}
+  .row{margin-bottom:14px}
+  label{display:block;color:var(--mut);font-size:12px;margin-bottom:5px}
+  input[type=range]{width:100%}
+  input[type=color]{width:100%;height:32px;border:1px solid var(--line);border-radius:6px;background:none}
+  select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:6px}
+  .grads{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+  .grads div{aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent}
+  .grads div.sel{border-color:#fff}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:44px;padding:6px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:6px;cursor:pointer;font-size:12px}
+  .seg button.on{background:var(--acc);border-color:var(--acc)}
+  .btn{width:100%;padding:11px;background:var(--acc);border:none;color:#fff;font-weight:600;border-radius:8px;cursor:pointer;font-size:14px}
+  .btn.sec{background:var(--bg);border:1px solid var(--line)}
+  .btn2{display:flex;gap:8px}
+  #drop{border:2px dashed var(--line);border-radius:10px;padding:26px 12px;text-align:center;color:var(--mut);cursor:pointer;margin-bottom:14px}
+  #drop.hot{border-color:var(--acc);color:var(--txt)}
+  .keyrow{display:flex;gap:6px}.keyrow input{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:6px}
+  .hint{font-size:11px;color:var(--mut);margin-top:6px}
+  .pill{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--acc);color:#fff}
+  .pill.free{background:#3a3f4b}
+  .sub{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 8px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<header>
+  <b>▲ Shotpine</b><span class="tag">Beautiful screenshots in seconds · one-time, nothing uploaded</span>
+  <span style="flex:1"></span>
+  <span id="planPill" class="pill free">FREE</span>
+</header>
+<div class="wrap">
+  <aside>
+    <div id="drop">Drop image · click · or ⌘V paste</div>
+    <input type="file" id="file" accept="image/*" hidden>
+
+    <div class="row"><label>Background</label>
+      <div class="grads" id="grads"></div>
+    </div>
+    <div class="row"><label>Custom solid</label><input type="color" id="solid" value="#3fae6b"></div>
+    <div class="row"><label>Padding <span id="vPad"></span></label><input type="range" id="pad" min="0" max="240" value="80"></div>
+    <div class="row"><label>Corner radius <span id="vRad"></span></label><input type="range" id="rad" min="0" max="48" value="14"></div>
+    <div class="row"><label>Shadow <span id="vSh"></span></label><input type="range" id="sh" min="0" max="80" value="34"></div>
+
+    <div class="sub">Frame — pick any, never auto-forced</div>
+    <div class="row">
+      <div class="seg" id="frame">
+        <button data-f="none" class="on">None</button>
+        <button data-f="mac">macOS</button>
+        <button data-f="macdark">Mac dark</button>
+        <button data-f="light">Browser</button>
+        <button data-f="dark">Browser dark</button>
+      </div>
+      <div class="hint">Works on any screenshot — portrait, landscape, or odd sizes. Never rejects your image.</div>
+    </div>
+
+    <div class="sub">Position &amp; angle</div>
+    <div class="row"><label>Rotate <span id="vTilt"></span></label><input type="range" id="tilt" min="-25" max="25" value="0"></div>
+    <div class="row"><label>Angle preset</label>
+      <div class="seg" id="persp">
+        <button data-p="0" class="on">Flat</button>
+        <button data-p="left">Left</button>
+        <button data-p="right">Right</button>
+        <button data-p="up">Up</button>
+      </div>
+      <div class="hint">Drag the image on the canvas to reposition it. <a href="#" id="recenter" style="color:var(--acc)">Re-center</a></div>
+    </div>
+
+    <div class="sub">Export</div>
+    <div class="row"><label>Output size</label>
+      <select id="size">
+        <option value="auto">Auto (fit image)</option>
+        <option value="1080,1080">Square 1080×1080 (Instagram)</option>
+        <option value="1600,900">16:9 1600×900 (X / Twitter)</option>
+        <option value="1200,630">OG 1200×630 (link preview)</option>
+        <option value="1080,1350">4:5 1080×1350 (IG portrait)</option>
+        <option value="1284,2778">App Store 6.7&quot; 1284×2778</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <div id="customWrap" class="keyrow" style="margin-top:8px;display:none">
+        <input id="cw" type="number" placeholder="width" value="1600"><input id="ch" type="number" placeholder="height" value="1000">
+      </div>
+    </div>
+    <div class="row btn2">
+      <button class="btn" id="export">Export PNG</button>
+      <button class="btn sec" id="copy" style="width:auto;white-space:nowrap">Copy</button>
+    </div>
+    <div class="hint" id="wmHint">Free export adds a small watermark. A one-time license removes it + unlocks 2× resolution. No subscription, ever.</div>
+
+    <div class="sub">License</div>
+    <div class="row">
+      <div class="keyrow"><input id="key" placeholder="SP-XXXX-XXXX"><button class="btn sec" style="width:auto" id="apply">Apply</button></div>
+      <div class="hint" id="keyStat"></div>
+    </div>
+  </aside>
+  <main><div id="stageWrap"><canvas id="c" width="900" height="600"></canvas></div></main>
+</div>
+<script>
+const GRADS=[
+ ['#f6d365','#fda085'],['#a1c4fd','#c2e9fb'],['#fbc2eb','#a6c1ee'],['#84fab0','#8fd3f4'],
+ ['#5ee7df','#b490ca'],['#d299c2','#fef9d7'],['#667eea','#764ba2'],['#f093fb','#f5576c'],
+ ['#4facfe','#00f2fe'],['#43e97b','#38f9d7'],['#fa709a','#fee140'],['#30cfd0','#330867']];
+const S={img:null,grad:9,solid:null,pad:80,rad:14,sh:34,tilt:0,persp:'0',frame:'none',
+         size:'auto',cw:1600,ch:1000,offx:0,offy:0,licensed:false};
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const gEl=document.getElementById('grads');
+GRADS.forEach((g,i)=>{const d=document.createElement('div');d.style.background=`linear-gradient(135deg,${g[0]},${g[1]})`;if(i===S.grad)d.className='sel';d.onclick=()=>{S.grad=i;S.solid=null;[...gEl.children].forEach(x=>x.className='');d.className='sel';draw()};gEl.appendChild(d)});
+document.getElementById('solid').oninput=e=>{S.solid=e.target.value;[...gEl.children].forEach(x=>x.className='');draw()};
+const bind=(id,key,fmt)=>{const el=document.getElementById(id);const lab=document.getElementById(fmt);const u=()=>{S[key]=+el.value;if(lab)lab.textContent=el.value;draw()};el.oninput=u;u()};
+bind('pad','pad','vPad');bind('rad','rad','vRad');bind('sh','sh','vSh');bind('tilt','tilt','vTilt');
+function segwire(id,key,after){document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>{S[key]=b.dataset[id==='frame'?'f':'p'];document.querySelectorAll('#'+id+' button').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(after)after();draw()})}
+segwire('frame','frame');segwire('persp','persp');
+// export-size control
+const sizeEl=document.getElementById('size'),cwrap=document.getElementById('customWrap');
+sizeEl.onchange=()=>{S.size=sizeEl.value;cwrap.style.display=S.size==='custom'?'flex':'none';draw()};
+document.getElementById('cw').oninput=e=>{S.cw=+e.target.value;draw()};
+document.getElementById('ch').oninput=e=>{S.ch=+e.target.value;draw()};
+document.getElementById('recenter').onclick=e=>{e.preventDefault();S.offx=0;S.offy=0;draw()};
+// drag to reposition
+let drag=false,px,py;
+c.addEventListener('pointerdown',e=>{drag=true;c.classList.add('drag');px=e.offsetX;py=e.offsetY});
+window.addEventListener('pointerup',()=>{drag=false;c.classList.remove('drag')});
+c.addEventListener('pointermove',e=>{if(!drag)return;const sx=c.width/c.clientWidth,sy=c.height/c.clientHeight;S.offx+=(e.offsetX-px)*sx;S.offy+=(e.offsetY-py)*sy;px=e.offsetX;py=e.offsetY;draw()});
+// image input
+const drop=document.getElementById('drop'),file=document.getElementById('file');
+drop.onclick=()=>file.click();
+file.onchange=e=>load(e.target.files[0]);
+drop.ondragover=e=>{e.preventDefault();drop.classList.add('hot')};
+drop.ondragleave=()=>drop.classList.remove('hot');
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove('hot');load(e.dataTransfer.files[0])};
+window.addEventListener('paste',e=>{for(const it of e.clipboardData.items)if(it.type.startsWith('image'))load(it.getAsFile())});
+function load(f){if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{S.img=im;S.offx=0;S.offy=0;draw()};im.src=r.result};r.readAsDataURL(f)}
+function bg(w,h){if(S.solid)return S.solid;const g=GRADS[S.grad];const lg=ctx.createLinearGradient(0,0,w,h);lg.addColorStop(0,g[0]);lg.addColorStop(1,g[1]);return lg}
+function rr(x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function draw(scale=1){
+ if(!S.img){c.width=900;c.height=600;ctx.fillStyle=bg(c.width,c.height);ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='rgba(255,255,255,.9)';ctx.font='600 22px sans-serif';ctx.textAlign='center';ctx.fillText('Drop or paste a screenshot →',c.width/2,c.height/2);ctx.textAlign='left';return}
+ const iw=S.img.width,ih=S.img.height,pad=S.pad*scale;
+ const barH=S.frame==='none'?0:34*scale;
+ let W,H;
+ if(S.size==='auto'){W=iw+pad*2;H=ih+pad*2+barH;}
+ else{let dims=S.size==='custom'?[S.cw,S.ch]:S.size.split(',').map(Number);W=dims[0]*scale;H=dims[1]*scale;}
+ c.width=W;c.height=H;
+ ctx.fillStyle=bg(W,H);ctx.fillRect(0,0,W,H);
+ // fit image inside available area (respect padding + frame), preserve aspect
+ const availW=W-pad*2, availH=H-pad*2-barH;
+ let dw=iw,dh=ih;const sc=Math.min(availW/iw,availH/ih,S.size==='auto'?1:9);dw=iw*sc;dh=ih*sc;
+ const x=(W-dw)/2+S.offx*scale, y=(H-dh-barH)/2+S.offy*scale, r=S.rad*scale;
+ ctx.save();
+ ctx.translate(W/2+S.offx*scale,H/2+S.offy*scale);
+ ctx.rotate(S.tilt*Math.PI/180);
+ // pseudo-perspective via skew
+ if(S.persp==='left')ctx.transform(1,0.12,0,1,0,0);
+ else if(S.persp==='right')ctx.transform(1,-0.12,0,1,0,0);
+ else if(S.persp==='up')ctx.transform(1,0,0.12,1,0,0);
+ ctx.translate(-(W/2+S.offx*scale),-(H/2+S.offy*scale));
+ if(S.sh){ctx.shadowColor='rgba(0,0,0,.45)';ctx.shadowBlur=S.sh*scale;ctx.shadowOffsetY=S.sh*.5*scale}
+ rr(x,y,dw,dh+barH,r);ctx.fillStyle='#fff';ctx.fill();ctx.shadowColor='transparent';
+ if(barH){ctx.save();rr(x,y,dw,barH,r);ctx.clip();const dark=S.frame==='macdark'||S.frame==='dark';ctx.fillStyle=dark?'#2b2f36':(S.frame==='mac'?'#e9e9ea':'#f1f3f4');ctx.fillRect(x,y,dw,barH);const cy=y+barH/2;['#ff5f57','#febc2e','#28c840'].forEach((col,i)=>{ctx.beginPath();ctx.fillStyle=col;ctx.arc(x+18*scale+i*20*scale,cy,6*scale,0,7);ctx.fill()});if(S.frame==='light'||S.frame==='dark'){ctx.fillStyle=dark?'#3a3f47':'#fff';rr(x+dw*.28,y+barH*.24,dw*.6,barH*.52,barH*.26);ctx.fill()}ctx.restore()}
+ ctx.save();rr(x,y+barH,dw,dh,barH?0:r);ctx.clip();ctx.drawImage(S.img,x,y+barH,dw,dh);ctx.restore();
+ ctx.restore();
+ if(!S.licensed){ctx.font=`600 ${13*scale}px sans-serif`;ctx.fillStyle='rgba(255,255,255,.9)';ctx.textAlign='right';ctx.fillText('made with Shotpine',W-14*scale,H-12*scale);ctx.textAlign='left'}
+}
+// license (v1 stub — SP- prefix, checksum; replace with Lemon Squeezy license API validation once live)
+function validKey(k){k=k.trim().toUpperCase();if(!/^SP-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(k))return false;let s=0;for(const ch of k.replace(/-/g,''))s+=ch.charCodeAt(0);return s%7===0}
+document.getElementById('apply').onclick=()=>{const k=document.getElementById('key').value;const ok=validKey(k);S.licensed=ok;const p=document.getElementById('planPill');p.textContent=ok?'PRO':'FREE';p.className='pill'+(ok?'':' free');const st=document.getElementById('keyStat');st.textContent=ok?'✓ Licensed — watermark off, 2× export unlocked.':'Invalid key.';st.style.color=ok?'#43e97b':'#f5576c';draw()};
+function render(){const sc=S.licensed?2:1;draw(sc);const url=c.toDataURL('image/png');draw(1);return url}
+document.getElementById('export').onclick=()=>{const a=document.createElement('a');a.download='shotpine.png';a.href=render();a.click()};
+document.getElementById('copy').onclick=async()=>{const sc=S.licensed?2:1;draw(sc);c.toBlob(async b=>{try{await navigator.clipboard.write([new ClipboardItem({'image/png':b})]);flash('Copied ✓')}catch(e){flash('Copy blocked — use Export')}draw(1)},'image/png')};
+function flash(t){const st=document.getElementById('keyStat');const o=st.textContent;st.textContent=t;setTimeout(()=>st.textContent=o,1500)}
+draw();
+</script>
+</body>
+</html>
