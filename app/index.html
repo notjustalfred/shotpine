@@ -105,8 +105,9 @@
 
     <div class="sub">License</div>
     <div class="row">
-      <div class="keyrow"><input id="key" placeholder="SP-XXXX-XXXX"><button class="btn sec" style="width:auto" id="apply">Apply</button></div>
+      <div class="keyrow"><input id="key" placeholder="paste your license key"><button class="btn sec" style="width:auto" id="apply">Apply</button></div>
       <div class="hint" id="keyStat"></div>
+      <div class="hint">No key yet? <a href="https://shotpine.lemonsqueezy.com/checkout/buy/1a308f9a-3692-4188-86c0-b6eed2869caf" target="_blank" style="color:var(--acc)">Get a lifetime license — $29, one-time</a></div>
     </div>
   </aside>
   <main><div id="stageWrap"><canvas id="c" width="900" height="600"></canvas></div></main>
@@ -176,9 +177,34 @@ function draw(scale=1){
  ctx.restore();
  if(!S.licensed){ctx.font=`600 ${13*scale}px sans-serif`;ctx.fillStyle='rgba(255,255,255,.9)';ctx.textAlign='right';ctx.fillText('made with Shotpine',W-14*scale,H-12*scale);ctx.textAlign='left'}
 }
-// license (v1 stub — SP- prefix, checksum; replace with Lemon Squeezy license API validation once live)
-function validKey(k){k=k.trim().toUpperCase();if(!/^SP-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(k))return false;let s=0;for(const ch of k.replace(/-/g,''))s+=ch.charCodeAt(0);return s%7===0}
-document.getElementById('apply').onclick=()=>{const k=document.getElementById('key').value;const ok=validKey(k);S.licensed=ok;const p=document.getElementById('planPill');p.textContent=ok?'PRO':'FREE';p.className='pill'+(ok?'':' free');const st=document.getElementById('keyStat');st.textContent=ok?'✓ Licensed — watermark off, 2× export unlocked.':'Invalid key.';st.style.color=ok?'#43e97b':'#f5576c';draw()};
+// license — live Lemon Squeezy validation (public endpoint, no secret key needed, browser-safe)
+const CHECKOUT_URL="https://shotpine.lemonsqueezy.com/checkout/buy/1a308f9a-3692-4188-86c0-b6eed2869caf";
+async function validKeyLS(key){
+  try{
+    const r=await fetch('https://api.lemonsqueezy.com/v1/licenses/validate',{
+      method:'POST',
+      headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams({license_key:key.trim()})
+    });
+    const d=await r.json();
+    return {ok: d.valid===true && d.license_key && d.license_key.status!=='disabled' && d.license_key.status!=='expired', d};
+  }catch(e){return {ok:false,err:e.message}}
+}
+// restore a saved license across sessions
+try{const saved=localStorage.getItem('sp_license');if(saved){document.getElementById('key').value=saved;}}catch(e){}
+document.getElementById('apply').onclick=async()=>{
+  const k=document.getElementById('key').value.trim();
+  const st=document.getElementById('keyStat');const p=document.getElementById('planPill');
+  if(!k){st.textContent='Enter your license key.';st.style.color='#f5576c';return;}
+  st.textContent='Checking…';st.style.color='#9aa4b2';
+  const {ok}=await validKeyLS(k);
+  S.licensed=ok;
+  p.textContent=ok?'PRO':'FREE';p.className='pill'+(ok?'':' free');
+  st.textContent=ok?'✓ Licensed — watermark off, 2× export unlocked.':'Invalid or inactive key.';
+  st.style.color=ok?'#43e97b':'#f5576c';
+  try{ok?localStorage.setItem('sp_license',k):localStorage.removeItem('sp_license');}catch(e){}
+  draw();
+};
 function render(){const sc=S.licensed?2:1;draw(sc);const url=c.toDataURL('image/png');draw(1);return url}
 document.getElementById('export').onclick=()=>{const a=document.createElement('a');a.download='shotpine.png';a.href=render();a.click()};
 document.getElementById('copy').onclick=async()=>{const sc=S.licensed?2:1;draw(sc);c.toBlob(async b=>{try{await navigator.clipboard.write([new ClipboardItem({'image/png':b})]);flash('Copied ✓')}catch(e){flash('Copy blocked — use Export')}draw(1)},'image/png')};
