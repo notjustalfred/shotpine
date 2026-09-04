@@ -103,7 +103,7 @@
       </div>
     </div>
     <div class="row btn2">
-      <button class="btn" id="export">Export PNG</button>
+      <button class="btn" id="export">Export PNG <span style="font-size:11px;opacity:.6;font-weight:400">⌘E</span></button>
       <button class="btn sec" id="copy" style="width:auto;white-space:nowrap">Copy</button>
     </div>
     <div class="hint" id="wmHint">Free export adds a small watermark. A one-time license removes it + unlocks 2× resolution. No subscription, ever.</div>
@@ -151,6 +151,7 @@ drop.ondragover=e=>{e.preventDefault();drop.classList.add('hot')};
 drop.ondragleave=()=>drop.classList.remove('hot');
 drop.ondrop=e=>{e.preventDefault();drop.classList.remove('hot');load(e.dataTransfer.files[0])};
 window.addEventListener('paste',e=>{for(const it of e.clipboardData.items)if(it.type.startsWith('image'))load(it.getAsFile())});
+window.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='e'&&!e.shiftKey){e.preventDefault();document.getElementById('export').click();}});
 function load(f){if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{S.img=im;S.offx=0;S.offy=0;draw()};im.src=r.result};r.readAsDataURL(f)}
 function bg(w,h){if(S.solid)return S.solid;const g=GRADS[S.grad];const lg=ctx.createLinearGradient(0,0,w,h);lg.addColorStop(0,g[0]);lg.addColorStop(1,g[1]);return lg}
 function rr(x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
